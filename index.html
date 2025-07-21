@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Espaço Reciclador com Joystick ♻️🚀</title>
+<title>Espaço Reciclador com Nave Pixel Art Animada ♻️🚀</title>
 <style>
   body {
     margin: 0; background: #000010; color: #eee; font-family: Arial, sans-serif; overflow: hidden;
@@ -154,7 +154,8 @@
     size: 40,
     speed: 3,
     energy: 0,
-    trashCollected: 0
+    trashCollected: 0,
+    animationFrame: 0 // pra animação de balanço
   };
 
   // Lixo espacial
@@ -246,7 +247,7 @@
   // Tutorial texto e etapas
   const tutorialSteps = [
     "Bem-vindo ao Espaço Reciclador! 🚀♻️",
-    "Use o joystick no canto inferior esquerdo para mover sua nave azul.",
+    "Use o joystick no canto inferior esquerdo para mover sua nave azul pixelada.",
     "Aproxime-se do lixo espacial para interagir com ele.",
     "Quando os botões \"Escanear\" e \"Recolher\" ficarem ativos, você pode usá-los.",
     "Escanear mostra o tipo do lixo e seu valor em energia.",
@@ -293,6 +294,10 @@
     if (ship.y < ship.size / 2) ship.y = ship.size / 2;
     if (ship.y > canvas.height - ship.size / 2) ship.y = canvas.height - ship.size / 2;
 
+    // Animação balanço nave (oscila entre -4 e +4 graus)
+    ship.animationFrame += 0.1;
+    if (ship.animationFrame > Math.PI * 2) ship.animationFrame -= Math.PI * 2;
+
     // Checar lixo próximo
     currentTrash = trashObjects.find(t => {
       let dx = ship.x - t.x;
@@ -316,61 +321,21 @@
   }
 
   function drawShip() {
-    ctx.fillStyle = "#0ff";
-    ctx.beginPath();
-    ctx.moveTo(ship.x, ship.y - ship.size / 2);
-    ctx.lineTo(ship.x - ship.size / 2, ship.y + ship.size / 2);
-    ctx.lineTo(ship.x + ship.size / 2, ship.y + ship.size / 2);
-    ctx.closePath();
-    ctx.fill();
-  }
+    const s = ship.size;
+    const px = ship.x;
+    const py = ship.y;
+    const angle = Math.sin(ship.animationFrame) * 0.07; // balanço suave ±4 graus (0.07 rad)
 
-  function drawTrash() {
-    trashObjects.forEach(t => {
-      ctx.fillStyle = t.color;
-      ctx.beginPath();
-      ctx.arc(t.x, t.y, t.size / 2, 0, Math.PI * 2);
-      ctx.fill();
-      if (t.combined) {
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-    });
-  }
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(angle);
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawShip();
-    drawTrash();
-  }
+    // Desenho pixel art nave: 9x9 pixels base, escala para s
+    const scale = s / 9;
 
-  function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
-  }
+    // Cada pixel é um retângulo colorido, criaremos a nave num grid 9x9
+    // Cores: transparente = nada, #0ff (azul claro), #008888 (azul escuro), #004444 (azul mais escuro)
 
-  scanBtn.onclick = () => {
-    if (!currentTrash) return;
-    alert(`Tipo: ${currentTrash.type}\nValor de energia: ${currentTrash.energyValue}`);
-  };
-
-  collectBtn.onclick = () => {
-    if (!currentTrash) return;
-    if (currentTrash.energyValue < 0) {
-      ship.energy = Math.max(0, ship.energy + currentTrash.energyValue);
-      alert("Lixo tóxico! Você perdeu energia!");
-    } else {
-      ship.energy += currentTrash.energyValue;
-      ship.trashCollected++;
-    }
-    trashObjects = trashObjects.filter(t => t !== currentTrash);
-    currentTrash = null;
-  };
-
-  gameLoop();
-</script>
-
-</body>
-</html>
+    // Mapa de pixels da nave (array 9x9, cada valor é cor ou null)
+    // A nave fica apontando para cima
+    // Layout simples:
