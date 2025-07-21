@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Espaço Reciclador com Nave Pixel Art Animada ♻️🚀</title>
+<title>Espaço Reciclador com Tutorial Funcionando</title>
 <style>
   body {
     margin: 0; background: #000010; color: #eee; font-family: Arial, sans-serif; overflow: hidden;
@@ -25,6 +25,7 @@
     color: #0ff;
     font-weight: bold;
     user-select:none;
+    display: none;
   }
   button {
     background: #0ff;
@@ -80,6 +81,7 @@
     border-radius: 50%;
     touch-action: none;
     user-select:none;
+    display: none;
   }
   /* Joystick base */
   #joystickBase {
@@ -108,7 +110,7 @@
 
 <canvas id="gameCanvas" width="700" height="500"></canvas>
 
-<div id="ui" style="display:none;">
+<div id="ui">
   Energia: <span id="energy">0</span><br />
   Lixo recolhido: <span id="trashCount">0</span><br />
   <button id="scanBtn" disabled>Escanear lixo</button>
@@ -124,7 +126,7 @@
 </div>
 
 <!-- Joystick -->
-<div id="joystickContainer" style="display:none;">
+<div id="joystickContainer">
   <div id="joystickBase"></div>
   <div id="joystickKnob"></div>
 </div>
@@ -155,7 +157,7 @@
     speed: 3,
     energy: 0,
     trashCollected: 0,
-    animationFrame: 0 // pra animação de balanço
+    animationFrame: 0
   };
 
   // Lixo espacial
@@ -333,9 +335,83 @@
     // Desenho pixel art nave: 9x9 pixels base, escala para s
     const scale = s / 9;
 
-    // Cada pixel é um retângulo colorido, criaremos a nave num grid 9x9
-    // Cores: transparente = nada, #0ff (azul claro), #008888 (azul escuro), #004444 (azul mais escuro)
-
     // Mapa de pixels da nave (array 9x9, cada valor é cor ou null)
     // A nave fica apontando para cima
-    // Layout simples:
+    // Layout simples: 
+    const pixelMap = [
+      [null,null, "#0ff","#0ff","#0ff", "#0ff", "#0ff",null,null],
+      [null,"#0ff","#008888","#008888","#008888", "#008888", "#0ff","#0ff",null],
+      ["#0ff","#008888","#004444","#004444","#004444", "#004444", "#008888","#008888","#0ff"],
+      ["#0ff","#008888","#004444","#ffffff","#004444", "#004444", "#008888","#008888","#0ff"],
+      ["#0ff","#008888","#004444","#004444","#004444", "#004444", "#008888","#008888","#0ff"],
+      [null,"#0ff","#008888","#008888","#008888", "#008888", "#0ff","#0ff",null],
+      [null,null, "#0ff","#0ff","#0ff", "#0ff", "#0ff",null,null],
+      [null,null,null, "#0ff",null,null, "#0ff",null,null],
+      [null,null,null,null,null,null,null,null,null]
+    ];
+
+    for(let pyx=0; pyx < 9; pyx++) {
+      for(let pxx=0; pxx < 9; pxx++) {
+        const color = pixelMap[pyx][pxx];
+        if(color) {
+          ctx.fillStyle = color;
+          ctx.fillRect((pxx - 4)*scale, (pyx - 4)*scale, scale, scale);
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawTrash() {
+    for(let t of trashObjects) {
+      ctx.fillStyle = t.color;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.size/2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    update();
+    drawTrash();
+    drawShip();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+
+  // Botões escanear e recolher
+  scanBtn.addEventListener("click", () => {
+    if(currentTrash) {
+      messageDiv.textContent = `Lixo tipo: ${currentTrash.type}, Energia: ${currentTrash.energyValue}`;
+    }
+  });
+
+  collectBtn.addEventListener("click", () => {
+    if(currentTrash) {
+      ship.energy += currentTrash.energyValue;
+      ship.trashCollected++;
+      trashObjects = trashObjects.filter(t => t.id !== currentTrash.id);
+      currentTrash = null;
+      scanBtn.disabled = true;
+      collectBtn.disabled = true;
+      messageDiv.textContent = "Lixo recolhido!";
+      energySpan.textContent = ship.energy;
+      trashCountSpan.textContent = ship.trashCollected;
+      if(trashObjects.length === 0) {
+        messageDiv.textContent = "Você coletou todo o lixo! Gerando mais...";
+        setTimeout(() => {
+          generateTrash();
+          messageDiv.textContent = "";
+        }, 2000);
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
