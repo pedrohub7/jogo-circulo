@@ -24,6 +24,17 @@
     button {
       margin: 2px;
     }
+    #achievement {
+      position: absolute;
+      top: 50px;
+      left: 10px;
+      background: #333;
+      padding: 10px 15px;
+      border-radius: 8px;
+      display: none;
+      font-weight: bold;
+      color: #0f0;
+    }
   </style>
 </head>
 <body>
@@ -34,8 +45,9 @@
     <div>Skin: <span id="skinName">Padrão</span></div>
     <button onclick="togglePause()" id="pauseBtn">⏸ Pausar</button>
     <button onclick="buySkin()">🎨 Nova Skin (R$100)</button>
-    <button onclick="upgradeSpeed()">⚡ Upgrade Velocidade (R$150)</button>
+    <button onclick="upgradeSpeed()">⚡ Evolução Velocidade (Custo: R$<span id='speedCost'>25</span>)</button>
   </div>
+  <div id="achievement">🎉 Conquista desbloqueada: Velocidade máxima + 500 moedas!</div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -50,11 +62,23 @@
     let dy = 3;
     let money = 0;
     let level = 1;
-    let skins = ["Padrão", "Azul", "Verde", "Vermelho", "Roxo", "Amarelo"];
     let skinColor = "white";
     let isPaused = false;
     let bounceCount = 0;
-    let speed = 3;
+
+    // Velocidade e upgrades
+    let speedLevel = 0;
+    const speedCosts = [25, 50, 100, 150];
+    const maxSpeedLevel = speedCosts.length;
+    const maxSpeedValue = 15;
+
+    // UI Elements
+    const moneyEl = document.getElementById("money");
+    const levelEl = document.getElementById("level");
+    const skinNameEl = document.getElementById("skinName");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const speedCostEl = document.getElementById("speedCost");
+    const achievementEl = document.getElementById("achievement");
 
     function playSound() {
       if (!window.AudioContext) return;
@@ -85,14 +109,26 @@
       x += dx;
       y += dy;
 
-      if (x + radius > canvas.width || x - radius < 0) {
+      if (x + radius > canvas.width) {
         dx = -dx;
+        x = canvas.width - radius; 
+        earnMoney();
+        bounce();
+      } else if (x - radius < 0) {
+        dx = -dx;
+        x = radius;
         earnMoney();
         bounce();
       }
 
-      if (y + radius > canvas.height || y - radius < 0) {
+      if (y + radius > canvas.height) {
         dy = -dy;
+        y = canvas.height - radius;
+        earnMoney();
+        bounce();
+      } else if (y - radius < 0) {
+        dy = -dy;
+        y = radius;
         earnMoney();
         bounce();
       }
@@ -102,7 +138,7 @@
 
     function earnMoney() {
       money += 10;
-      document.getElementById("money").innerText = money;
+      moneyEl.innerText = money;
     }
 
     function bounce() {
@@ -110,10 +146,22 @@
       playSound();
       if (bounceCount % 20 === 0) {
         level++;
-        document.getElementById("level").innerText = level;
-        dx *= 1.1;
-        dy *= 1.1;
+        levelEl.innerText = level;
+        increaseSpeed(1.1);
       }
+    }
+
+    function increaseSpeed(multiplier) {
+      dx *= multiplier;
+      dy *= multiplier;
+      limitSpeed();
+    }
+
+    function limitSpeed() {
+      if (dx > maxSpeedValue) dx = maxSpeedValue;
+      if (dx < -maxSpeedValue) dx = -maxSpeedValue;
+      if (dy > maxSpeedValue) dy = maxSpeedValue;
+      if (dy < -maxSpeedValue) dy = -maxSpeedValue;
     }
 
     function togglePause() {
@@ -122,31 +170,47 @@
     }
 
     function updatePauseButton() {
-      const btn = document.getElementById("pauseBtn");
-      btn.innerText = isPaused ? "▶️ Continuar" : "⏸ Pausar";
+      pauseBtn.innerText = isPaused ? "▶️ Continuar" : "⏸ Pausar";
     }
 
     function buySkin() {
       if (money >= 100) {
         money -= 100;
-        document.getElementById("money").innerText = money;
+        moneyEl.innerText = money;
         skinColor = getRandomColor();
-        document.getElementById("skinName").innerText = "Custom";
+        skinNameEl.innerText = "Custom";
       } else {
         alert("Dinheiro insuficiente!");
       }
     }
 
     function upgradeSpeed() {
-      if (money >= 150) {
-        money -= 150;
-        dx *= 1.2;
-        dy *= 1.2;
-        speed *= 1.2;
-        document.getElementById("money").innerText = money;
-        alert("Velocidade aumentada!");
+      if (speedLevel >= maxSpeedLevel) {
+        alert("Você já atingiu o nível máximo de velocidade!");
+        return;
+      }
+      let cost = speedCosts[speedLevel];
+      if (money >= cost) {
+        money -= cost;
+        moneyEl.innerText = money;
+        speedLevel++;
+        speedCostEl.innerText = speedLevel < maxSpeedLevel ? speedCosts[speedLevel] : "-";
+        dx *= 1.5;
+        dy *= 1.5;
+        limitSpeed();
+
+        alert(`Velocidade evoluída para nível ${speedLevel}!`);
+
+        if (speedLevel === maxSpeedLevel) {
+          achievementEl.style.display = "block";
+          money += 500;
+          moneyEl.innerText = money;
+          setTimeout(() => {
+            achievementEl.style.display = "none";
+          }, 5000);
+        }
       } else {
-        alert("Dinheiro insuficiente!");
+        alert(`Dinheiro insuficiente! Você precisa de R$${cost}`);
       }
     }
 
