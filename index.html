@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Jogo do Círculo</title>
   <style>
     body {
@@ -32,7 +32,7 @@
     <div>Dinheiro: R$<span id="money">0</span></div>
     <div>Nível: <span id="level">1</span></div>
     <div>Skin: <span id="skinName">Padrão</span></div>
-    <button onclick="togglePause()">⏸ Pausar</button>
+    <button onclick="togglePause()" id="pauseBtn">⏸ Pausar</button>
     <button onclick="buySkin()">🎨 Nova Skin (R$100)</button>
     <button onclick="upgradeSpeed()">⚡ Upgrade Velocidade (R$150)</button>
   </div>
@@ -55,16 +55,19 @@
     let isPaused = false;
     let bounceCount = 0;
     let speed = 3;
-    let sound = new AudioContext();
-    let oscillator;
 
     function playSound() {
-      if (oscillator) oscillator.stop();
-      oscillator = sound.createOscillator();
-      oscillator.frequency.setValueAtTime(300 + Math.random() * 200, sound.currentTime);
-      oscillator.connect(sound.destination);
-      oscillator.start();
-      oscillator.stop(sound.currentTime + 0.05);
+      if (!window.AudioContext) return;
+      if (window.oscillator) {
+        window.oscillator.stop();
+        window.oscillator.disconnect();
+      }
+      window.audioCtx = window.audioCtx || new AudioContext();
+      window.oscillator = window.audioCtx.createOscillator();
+      window.oscillator.frequency.setValueAtTime(300 + Math.random() * 200, window.audioCtx.currentTime);
+      window.oscillator.connect(window.audioCtx.destination);
+      window.oscillator.start();
+      window.oscillator.stop(window.audioCtx.currentTime + 0.05);
     }
 
     function drawCircle() {
@@ -115,7 +118,12 @@
 
     function togglePause() {
       isPaused = !isPaused;
-      event.target.innerText = isPaused ? "▶️ Continuar" : "⏸ Pausar";
+      updatePauseButton();
+    }
+
+    function updatePauseButton() {
+      const btn = document.getElementById("pauseBtn");
+      btn.innerText = isPaused ? "▶️ Continuar" : "⏸ Pausar";
     }
 
     function buySkin() {
@@ -146,6 +154,16 @@
       const cores = ["red", "blue", "green", "yellow", "orange", "purple", "cyan", "white"];
       return cores[Math.floor(Math.random() * cores.length)];
     }
+
+    // Pausa automática ao trocar de aba
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        isPaused = true;
+      } else {
+        isPaused = false;
+      }
+      updatePauseButton();
+    });
 
     setInterval(update, 16);
   </script>
