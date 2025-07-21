@@ -2,12 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Espaço Reciclador com Tutorial ♻️🚀</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Espaço Reciclador com Joystick ♻️🚀</title>
 <style>
   body {
     margin: 0; background: #000010; color: #eee; font-family: Arial, sans-serif; overflow: hidden;
     user-select: none;
+    touch-action: none;
   }
   #gameCanvas {
     background: linear-gradient(to bottom, #001022, #000000);
@@ -15,6 +16,7 @@
     margin: auto;
     border: 3px solid #0ff;
     border-radius: 10px;
+    touch-action: none;
   }
   #ui {
     position: absolute;
@@ -22,6 +24,7 @@
     left: 10px;
     color: #0ff;
     font-weight: bold;
+    user-select:none;
   }
   button {
     background: #0ff;
@@ -31,6 +34,7 @@
     border-radius: 5px;
     font-weight: bold;
     cursor: pointer;
+    user-select:none;
   }
   #message {
     position: absolute;
@@ -41,6 +45,7 @@
     font-weight: bold;
     min-width: 200px;
     text-align: center;
+    user-select:none;
   }
   #tutorialOverlay {
     position: fixed;
@@ -55,6 +60,7 @@
     padding: 20px;
     text-align: center;
     z-index: 1000;
+    user-select:none;
   }
   #tutorialOverlay button {
     margin-top: 20px;
@@ -62,6 +68,39 @@
     color: #000;
     font-size: 20px;
     padding: 10px 20px;
+  }
+  /* Joystick container */
+  #joystickContainer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 120px;
+    height: 120px;
+    background: rgba(0,255,255,0.15);
+    border-radius: 50%;
+    touch-action: none;
+    user-select:none;
+  }
+  /* Joystick base */
+  #joystickBase {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border: 3px solid #0ff;
+    border-radius: 50%;
+    box-sizing: border-box;
+  }
+  /* Joystick knob */
+  #joystickKnob {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: #0ff;
+    border-radius: 50%;
+    top: 35px;
+    left: 35px;
+    touch-action: none;
+    user-select:none;
   }
 </style>
 </head>
@@ -84,6 +123,12 @@
   <button id="tutorialNextBtn">Começar</button>
 </div>
 
+<!-- Joystick -->
+<div id="joystickContainer" style="display:none;">
+  <div id="joystickBase"></div>
+  <div id="joystickKnob"></div>
+</div>
+
 <script>
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
@@ -98,6 +143,9 @@
   const tutorialOverlay = document.getElementById("tutorialOverlay");
   const tutorialText = document.getElementById("tutorialText");
   const tutorialNextBtn = document.getElementById("tutorialNextBtn");
+
+  const joystickContainer = document.getElementById("joystickContainer");
+  const joystickKnob = document.getElementById("joystickKnob");
 
   // Nave
   const ship = {
@@ -139,10 +187,133 @@
 
   generateTrash();
 
-  // Movimento teclado
-  let keys = {};
-  window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-  window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+  // Controle joystick
+  let joystickActive = false;
+  let joystickCenter = {x:0, y:0};
+  let joystickPos = {x:0, y:0};
+  let moveVector = {x:0, y:0};
+  const maxDistance = 40;
+
+  function onStart(event) {
+    event.preventDefault();
+    joystickActive = true;
+    const rect = joystickContainer.getBoundingClientRect();
+    joystickCenter.x = rect.left + rect.width / 2;
+    joystickCenter.y = rect.top + rect.height / 2;
+    updateJoystickPosition(event);
+  }
+  function onMove(event) {
+    if (!joystickActive) return;
+    updateJoystickPosition(event);
+  }
+  function onEnd(event) {
+    joystickActive = false;
+    joystickKnob.style.transform = `translate(35px, 35px)`;
+    moveVector.x = 0;
+    moveVector.y = 0;
+  }
+  function updateJoystickPosition(event) {
+    let clientX, clientY;
+    if (event.touches && event.touches.length > 0) {
+      clientX = event.touches[0].clientX;
+      clientY = event.touches[0].clientY;
+    } else {
+      clientX = event.clientX;
+      clientY = event.clientY;
+    }
+    let dx = clientX - joystickCenter.x;
+    let dy = clientY - joystickCenter.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > maxDistance) {
+      dx = dx / dist * maxDistance;
+      dy = dy / dist * maxDistance;
+      dist = maxDistance;
+    }
+    joystickKnob.style.transform = `translate(${35 + dx}px, ${35 + dy}px)`;
+    moveVector.x = dx / maxDistance;
+    moveVector.y = dy / maxDistance;
+  }
+
+  joystickContainer.addEventListener("mousedown", onStart);
+  joystickContainer.addEventListener("touchstart", onStart);
+
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("touchmove", onMove, {passive:false});
+
+  window.addEventListener("mouseup", onEnd);
+  window.addEventListener("touchend", onEnd);
+
+  // Tutorial texto e etapas
+  const tutorialSteps = [
+    "Bem-vindo ao Espaço Reciclador! 🚀♻️",
+    "Use o joystick no canto inferior esquerdo para mover sua nave azul.",
+    "Aproxime-se do lixo espacial para interagir com ele.",
+    "Quando os botões \"Escanear\" e \"Recolher\" ficarem ativos, você pode usá-los.",
+    "Escanear mostra o tipo do lixo e seu valor em energia.",
+    "Recolher adiciona energia à sua nave, mas cuidado com lixo tóxico!",
+    "Seu objetivo é coletar o máximo de energia possível para evoluir.",
+    "Boa sorte, piloto! Pressione Começar para iniciar o jogo."
+  ];
+
+  let tutorialIndex = 0;
+
+  function showTutorialStep(index) {
+    tutorialText.textContent = tutorialSteps[index];
+    tutorialNextBtn.textContent = index === tutorialSteps.length - 1 ? "Começar" : "Próximo";
+  }
+
+  tutorialNextBtn.addEventListener("click", () => {
+    tutorialIndex++;
+    if (tutorialIndex >= tutorialSteps.length) {
+      tutorialOverlay.style.display = "none";
+      uiDiv.style.display = "block";
+      joystickContainer.style.display = "block";
+      gameStarted = true;
+    } else {
+      showTutorialStep(tutorialIndex);
+    }
+  });
+
+  showTutorialStep(0);
+
+  // Estado do jogo
+  let currentTrash = null;
+  let gameStarted = false;
+
+  function update() {
+    if (!gameStarted) return;
+
+    // Movimento da nave via joystick
+    ship.x += moveVector.x * ship.speed;
+    ship.y += moveVector.y * ship.speed;
+
+    // Limites da tela
+    if (ship.x < ship.size / 2) ship.x = ship.size / 2;
+    if (ship.x > canvas.width - ship.size / 2) ship.x = canvas.width - ship.size / 2;
+    if (ship.y < ship.size / 2) ship.y = ship.size / 2;
+    if (ship.y > canvas.height - ship.size / 2) ship.y = canvas.height - ship.size / 2;
+
+    // Checar lixo próximo
+    currentTrash = trashObjects.find(t => {
+      let dx = ship.x - t.x;
+      let dy = ship.y - t.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      return dist < ship.size;
+    });
+
+    if (currentTrash) {
+      scanBtn.disabled = false;
+      collectBtn.disabled = false;
+      messageDiv.textContent = `Lixo perto: ${currentTrash.type} (use os botões)`;
+    } else {
+      scanBtn.disabled = true;
+      collectBtn.disabled = true;
+      messageDiv.textContent = "Não há lixo perto.";
+    }
+
+    energySpan.textContent = ship.energy;
+    trashCountSpan.textContent = ship.trashCollected;
+  }
 
   function drawShip() {
     ctx.fillStyle = "#0ff";
@@ -166,77 +337,6 @@
         ctx.stroke();
       }
     });
-  }
-
-  // Tutorial texto e etapas
-  const tutorialSteps = [
-    "Bem-vindo ao Espaço Reciclador! 🚀♻️",
-    "Use as setas do teclado para mover sua nave azul.",
-    "Aproxime-se do lixo espacial para interagir com ele.",
-    "Quando os botões \"Escanear\" e \"Recolher\" ficarem ativos, você pode usá-los.",
-    "Escanear mostra o tipo do lixo e seu valor em energia.",
-    "Recolher adiciona energia à sua nave, mas cuidado com lixo tóxico!",
-    "Seu objetivo é coletar o máximo de energia possível para evoluir.",
-    "Boa sorte, piloto! Pressione Começar para iniciar o jogo."
-  ];
-
-  let tutorialIndex = 0;
-
-  function showTutorialStep(index) {
-    tutorialText.textContent = tutorialSteps[index];
-    if(index === tutorialSteps.length - 1){
-      tutorialNextBtn.textContent = "Começar";
-    } else {
-      tutorialNextBtn.textContent = "Próximo";
-    }
-  }
-
-  tutorialNextBtn.addEventListener("click", () => {
-    tutorialIndex++;
-    if (tutorialIndex >= tutorialSteps.length) {
-      tutorialOverlay.style.display = "none";
-      uiDiv.style.display = "block";
-      gameStarted = true;
-    } else {
-      showTutorialStep(tutorialIndex);
-    }
-  });
-
-  showTutorialStep(0);
-
-  // Estado do jogo
-  let currentTrash = null;
-  let gameStarted = false;
-
-  function update() {
-    if (!gameStarted) return;
-
-    // Movimento da nave
-    if (keys["arrowup"] && ship.y - ship.speed - ship.size / 2 > 0) ship.y -= ship.speed;
-    if (keys["arrowdown"] && ship.y + ship.speed + ship.size / 2 < canvas.height) ship.y += ship.speed;
-    if (keys["arrowleft"] && ship.x - ship.speed - ship.size / 2 > 0) ship.x -= ship.speed;
-    if (keys["arrowright"] && ship.x + ship.speed + ship.size / 2 < canvas.width) ship.x += ship.speed;
-
-    // Checar lixo próximo
-    currentTrash = trashObjects.find(t => {
-      let dx = ship.x - t.x;
-      let dy = ship.y - t.y;
-      let dist = Math.sqrt(dx * dx + dy * dy);
-      return dist < ship.size;
-    });
-
-    if (currentTrash) {
-      scanBtn.disabled = false;
-      collectBtn.disabled = false;
-      messageDiv.textContent = `Lixo perto: ${currentTrash.type} (use os botões)`;
-    } else {
-      scanBtn.disabled = true;
-      collectBtn.disabled = true;
-      messageDiv.textContent = "Não há lixo perto.";
-    }
-
-    energySpan.textContent = ship.energy;
-    trashCountSpan.textContent = ship.trashCollected;
   }
 
   function draw() {
