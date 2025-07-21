@@ -1,175 +1,276 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Jogo do Círculo</title>
-  <style>
-    body { margin: 0; background: #111; color: #fff; font-family: sans-serif; overflow: hidden; }
-    canvas { display: block; background: #222; margin: 0 auto; }
-    #ui, #menu, #shop, #config, #pause, #achievements { position: absolute; top: 0; left: 0; padding: 10px; }
-    button { margin: 5px; padding: 10px; border: none; border-radius: 5px; background: #444; color: #fff; cursor: pointer; }
-    #ui { top: 10px; left: 10px; }
-    #menu, #shop, #config, #pause, #achievements { display: none; background: rgba(0,0,0,0.8); width: 100%; height: 100%; justify-content: center; align-items: center; flex-direction: column; }
-    #menu, #shop, #config, #pause, #achievements { display: flex; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Espaço Reciclador com Tutorial ♻️🚀</title>
+<style>
+  body {
+    margin: 0; background: #000010; color: #eee; font-family: Arial, sans-serif; overflow: hidden;
+    user-select: none;
+  }
+  #gameCanvas {
+    background: linear-gradient(to bottom, #001022, #000000);
+    display: block;
+    margin: auto;
+    border: 3px solid #0ff;
+    border-radius: 10px;
+  }
+  #ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: #0ff;
+    font-weight: bold;
+  }
+  button {
+    background: #0ff;
+    border: none;
+    padding: 8px 12px;
+    margin: 5px;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #message {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #0ff;
+    font-weight: bold;
+    min-width: 200px;
+    text-align: center;
+  }
+  #tutorialOverlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    color: #0ff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+    padding: 20px;
+    text-align: center;
+    z-index: 1000;
+  }
+  #tutorialOverlay button {
+    margin-top: 20px;
+    background: #0ff;
+    color: #000;
+    font-size: 20px;
+    padding: 10px 20px;
+  }
+</style>
 </head>
 <body>
-  <canvas id="game" width="600" height="400"></canvas>
-  <div id="ui">
-    <div>💰 Moedas: <span id="coins">0</span></div>
-    <button onclick="togglePause()">⏸ Pausar</button>
-    <button onclick="openShop()">🛒 Loja</button>
-    <button onclick="openConfig()">⚙️ Config</button>
-  </div>
 
-  <div id="menu">
-    <h1>Jogo do Círculo</h1>
-    <button onclick="startGame()">▶️ Iniciar</button>
-  </div>
+<canvas id="gameCanvas" width="700" height="500"></canvas>
 
-  <div id="shop">
-    <h2>Loja</h2>
-    <button onclick="buySpeed()">⚡ Velocidade - <span id="speedCost">25</span></button>
-    <button onclick="backToGame()">↩️ Voltar</button>
-  </div>
+<div id="ui" style="display:none;">
+  Energia: <span id="energy">0</span><br />
+  Lixo recolhido: <span id="trashCount">0</span><br />
+  <button id="scanBtn" disabled>Escanear lixo</button>
+  <button id="collectBtn" disabled>Recolher lixo</button>
+</div>
 
-  <div id="config">
-    <h2>Configurações</h2>
-    <button onclick="toggleSound()">🔊 Música: <span id="soundStatus">ON</span></button>
-    <button onclick="backToGame()">↩️ Voltar</button>
-  </div>
+<div id="message"></div>
 
-  <div id="pause">
-    <h2>Pausado</h2>
-    <button onclick="togglePause()">▶️ Retomar</button>
-  </div>
+<!-- Tutorial -->
+<div id="tutorialOverlay">
+  <div id="tutorialText"></div>
+  <button id="tutorialNextBtn">Começar</button>
+</div>
 
-  <div id="achievements">
-    <h2>🏆 Conquistas</h2>
-    <p id="achMsg"></p>
-    <button onclick="closeAchievements()">OK</button>
-  </div>
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+  const energySpan = document.getElementById("energy");
+  const trashCountSpan = document.getElementById("trashCount");
+  const scanBtn = document.getElementById("scanBtn");
+  const collectBtn = document.getElementById("collectBtn");
+  const messageDiv = document.getElementById("message");
+  const uiDiv = document.getElementById("ui");
 
-    let circle = { x: 300, y: 200, r: 15, dx: 2, dy: 2, speed: 2 };
-    let coins = parseInt(localStorage.getItem("coins")) || 0;
-    let upgrades = parseInt(localStorage.getItem("speedLevel")) || 0;
-    let gameRunning = false;
-    let paused = false;
-    let musicOn = true;
+  const tutorialOverlay = document.getElementById("tutorialOverlay");
+  const tutorialText = document.getElementById("tutorialText");
+  const tutorialNextBtn = document.getElementById("tutorialNextBtn");
 
-    let speedCosts = [25, 50, 100, 150];
-    const maxSpeedLevel = speedCosts.length;
+  // Nave
+  const ship = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    size: 40,
+    speed: 3,
+    energy: 0,
+    trashCollected: 0
+  };
 
-    let bgMusic = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_0c32938b79.mp3");
-    bgMusic.loop = true;
+  // Lixo espacial
+  const trashTypes = [
+    { type: "Plástico", color: "#00ffff", energyValue: 5 },
+    { type: "Metal", color: "#aaaaaa", energyValue: 10 },
+    { type: "Orgânico", color: "#00aa00", energyValue: 3 },
+    { type: "Tóxico", color: "#ff3300", energyValue: -15 }
+  ];
 
-    function drawCircle() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let trashObjects = [];
+
+  // Gerar lixo
+  function generateTrash() {
+    trashObjects = [];
+    for (let i = 0; i < 15; i++) {
+      let t = trashTypes[Math.floor(Math.random() * trashTypes.length)];
+      trashObjects.push({
+        x: Math.random() * (canvas.width - 20) + 10,
+        y: Math.random() * (canvas.height - 20) + 10,
+        size: 20 + Math.random() * 15,
+        type: t.type,
+        color: t.color,
+        energyValue: t.energyValue,
+        combined: false,
+        id: i
+      });
+    }
+  }
+
+  generateTrash();
+
+  // Movimento teclado
+  let keys = {};
+  window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  function drawShip() {
+    ctx.fillStyle = "#0ff";
+    ctx.beginPath();
+    ctx.moveTo(ship.x, ship.y - ship.size / 2);
+    ctx.lineTo(ship.x - ship.size / 2, ship.y + ship.size / 2);
+    ctx.lineTo(ship.x + ship.size / 2, ship.y + ship.size / 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawTrash() {
+    trashObjects.forEach(t => {
+      ctx.fillStyle = t.color;
       ctx.beginPath();
-      ctx.arc(circle.x, circle.y, circle.r, 0, Math.PI * 2);
-      ctx.fillStyle = "deepskyblue";
+      ctx.arc(t.x, t.y, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
-    }
-
-    function moveCircle() {
-      if (!paused) {
-        circle.x += circle.dx * circle.speed;
-        circle.y += circle.dy * circle.speed;
-
-        if (circle.x + circle.r > canvas.width || circle.x - circle.r < 0) circle.dx *= -1;
-        if (circle.y + circle.r > canvas.height || circle.y - circle.r < 0) circle.dy *= -1;
-
-        coins++;
-        updateUI();
+      if (t.combined) {
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
+    });
+  }
+
+  // Tutorial texto e etapas
+  const tutorialSteps = [
+    "Bem-vindo ao Espaço Reciclador! 🚀♻️",
+    "Use as setas do teclado para mover sua nave azul.",
+    "Aproxime-se do lixo espacial para interagir com ele.",
+    "Quando os botões \"Escanear\" e \"Recolher\" ficarem ativos, você pode usá-los.",
+    "Escanear mostra o tipo do lixo e seu valor em energia.",
+    "Recolher adiciona energia à sua nave, mas cuidado com lixo tóxico!",
+    "Seu objetivo é coletar o máximo de energia possível para evoluir.",
+    "Boa sorte, piloto! Pressione Começar para iniciar o jogo."
+  ];
+
+  let tutorialIndex = 0;
+
+  function showTutorialStep(index) {
+    tutorialText.textContent = tutorialSteps[index];
+    if(index === tutorialSteps.length - 1){
+      tutorialNextBtn.textContent = "Começar";
+    } else {
+      tutorialNextBtn.textContent = "Próximo";
+    }
+  }
+
+  tutorialNextBtn.addEventListener("click", () => {
+    tutorialIndex++;
+    if (tutorialIndex >= tutorialSteps.length) {
+      tutorialOverlay.style.display = "none";
+      uiDiv.style.display = "block";
+      gameStarted = true;
+    } else {
+      showTutorialStep(tutorialIndex);
+    }
+  });
+
+  showTutorialStep(0);
+
+  // Estado do jogo
+  let currentTrash = null;
+  let gameStarted = false;
+
+  function update() {
+    if (!gameStarted) return;
+
+    // Movimento da nave
+    if (keys["arrowup"] && ship.y - ship.speed - ship.size / 2 > 0) ship.y -= ship.speed;
+    if (keys["arrowdown"] && ship.y + ship.speed + ship.size / 2 < canvas.height) ship.y += ship.speed;
+    if (keys["arrowleft"] && ship.x - ship.speed - ship.size / 2 > 0) ship.x -= ship.speed;
+    if (keys["arrowright"] && ship.x + ship.speed + ship.size / 2 < canvas.width) ship.x += ship.speed;
+
+    // Checar lixo próximo
+    currentTrash = trashObjects.find(t => {
+      let dx = ship.x - t.x;
+      let dy = ship.y - t.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      return dist < ship.size;
+    });
+
+    if (currentTrash) {
+      scanBtn.disabled = false;
+      collectBtn.disabled = false;
+      messageDiv.textContent = `Lixo perto: ${currentTrash.type} (use os botões)`;
+    } else {
+      scanBtn.disabled = true;
+      collectBtn.disabled = true;
+      messageDiv.textContent = "Não há lixo perto.";
     }
 
-    function updateUI() {
-      document.getElementById("coins").textContent = coins;
-      if (upgrades < maxSpeedLevel) {
-        document.getElementById("speedCost").textContent = speedCosts[upgrades];
-      } else {
-        document.getElementById("speedCost").textContent = "MAX";
-      }
-      localStorage.setItem("coins", coins);
-      localStorage.setItem("speedLevel", upgrades);
+    energySpan.textContent = ship.energy;
+    trashCountSpan.textContent = ship.trashCollected;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawShip();
+    drawTrash();
+  }
+
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  scanBtn.onclick = () => {
+    if (!currentTrash) return;
+    alert(`Tipo: ${currentTrash.type}\nValor de energia: ${currentTrash.energyValue}`);
+  };
+
+  collectBtn.onclick = () => {
+    if (!currentTrash) return;
+    if (currentTrash.energyValue < 0) {
+      ship.energy = Math.max(0, ship.energy + currentTrash.energyValue);
+      alert("Lixo tóxico! Você perdeu energia!");
+    } else {
+      ship.energy += currentTrash.energyValue;
+      ship.trashCollected++;
     }
+    trashObjects = trashObjects.filter(t => t !== currentTrash);
+    currentTrash = null;
+  };
 
-    function loop() {
-      if (gameRunning) {
-        moveCircle();
-        drawCircle();
-        requestAnimationFrame(loop);
-      }
-    }
+  gameLoop();
+</script>
 
-    function startGame() {
-      document.getElementById("menu").style.display = "none";
-      gameRunning = true;
-      if (musicOn) bgMusic.play();
-      loop();
-    }
-
-    function togglePause() {
-      paused = !paused;
-      document.getElementById("pause").style.display = paused ? "flex" : "none";
-    }
-
-    function openShop() {
-      paused = true;
-      document.getElementById("shop").style.display = "flex";
-    }
-
-    function openConfig() {
-      paused = true;
-      document.getElementById("config").style.display = "flex";
-    }
-
-    function backToGame() {
-      paused = false;
-      document.getElementById("shop").style.display = "none";
-      document.getElementById("config").style.display = "none";
-    }
-
-    function toggleSound() {
-      musicOn = !musicOn;
-      document.getElementById("soundStatus").textContent = musicOn ? "ON" : "OFF";
-      if (musicOn) bgMusic.play();
-      else bgMusic.pause();
-    }
-
-    function buySpeed() {
-      if (upgrades >= maxSpeedLevel) return;
-      let cost = speedCosts[upgrades];
-      if (coins >= cost) {
-        coins -= cost;
-        upgrades++;
-        circle.speed += 0.5;
-        updateUI();
-
-        if (upgrades === maxSpeedLevel) {
-          coins += 500;
-          showAchievement("🏁 Limite máximo de velocidade alcançado! +500 moedas!");
-        }
-      }
-    }
-
-    function showAchievement(text) {
-      document.getElementById("achievements").style.display = "flex";
-      document.getElementById("achMsg").textContent = text;
-    }
-
-    function closeAchievements() {
-      document.getElementById("achievements").style.display = "none";
-    }
-
-    updateUI();
-    drawCircle();
-  </script>
 </body>
 </html>
