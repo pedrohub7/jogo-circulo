@@ -1,112 +1,153 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Jogo do Círculo</title>
   <style>
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
+      overflow: hidden;
       background: #111;
       color: white;
-      text-align: center;
+      font-family: sans-serif;
     }
-    h1 {
-      margin-top: 20px;
-    }
-    #gameArea {
-      position: relative;
-      width: 100%;
-      height: 80vh;
+    canvas {
+      display: block;
       background: #222;
-      overflow: hidden;
-      margin: auto;
-      border: 2px solid #fff;
     }
-    .circle {
-      width: 60px;
-      height: 60px;
-      background: red;
-      border-radius: 50%;
+    #ui {
       position: absolute;
-      cursor: pointer;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
     }
-    #score {
-      font-size: 24px;
-      margin-top: 10px;
-    }
-    #startBtn {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin-top: 10px;
-      cursor: pointer;
-      background: green;
-      color: white;
-      border: none;
-      border-radius: 5px;
+    button {
+      margin: 2px;
     }
   </style>
 </head>
 <body>
-
-  <h1>Jogo do Círculo 🎯</h1>
-  <div id="score">Pontos: 0</div>
-  <button id="startBtn">Iniciar</button>
-  <div id="gameArea"></div>
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui">
+    <div>Dinheiro: R$<span id="money">0</span></div>
+    <div>Nível: <span id="level">1</span></div>
+    <div>Skin: <span id="skinName">Padrão</span></div>
+    <button onclick="togglePause()">⏸ Pausar</button>
+    <button onclick="buySkin()">🎨 Nova Skin (R$100)</button>
+    <button onclick="upgradeSpeed()">⚡ Upgrade Velocidade (R$150)</button>
+  </div>
 
   <script>
-    const gameArea = document.getElementById("gameArea");
-    const scoreEl = document.getElementById("score");
-    const startBtn = document.getElementById("startBtn");
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    let score = 0;
-    let gameInterval;
+    let x = canvas.width / 2;
+    let y = canvas.height / 2;
+    let radius = 20;
+    let dx = 3;
+    let dy = 3;
+    let money = 0;
+    let level = 1;
+    let skins = ["Padrão", "Azul", "Verde", "Vermelho", "Roxo", "Amarelo"];
+    let skinColor = "white";
+    let isPaused = false;
+    let bounceCount = 0;
+    let speed = 3;
+    let sound = new AudioContext();
+    let oscillator;
 
-    function randomPosition(max) {
-      return Math.floor(Math.random() * max);
+    function playSound() {
+      if (oscillator) oscillator.stop();
+      oscillator = sound.createOscillator();
+      oscillator.frequency.setValueAtTime(300 + Math.random() * 200, sound.currentTime);
+      oscillator.connect(sound.destination);
+      oscillator.start();
+      oscillator.stop(sound.currentTime + 0.05);
     }
 
-    function createCircle() {
-      const circle = document.createElement("div");
-      circle.classList.add("circle");
-
-      const maxX = gameArea.clientWidth - 60;
-      const maxY = gameArea.clientHeight - 60;
-
-      circle.style.left = randomPosition(maxX) + "px";
-      circle.style.top = randomPosition(maxY) + "px";
-
-      circle.addEventListener("click", () => {
-        score++;
-        scoreEl.textContent = "Pontos: " + score;
-        circle.remove();
-      });
-
-      gameArea.appendChild(circle);
-
-      setTimeout(() => {
-        if (gameArea.contains(circle)) {
-          circle.remove();
-        }
-      }, 1000);
+    function drawCircle() {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = skinColor;
+      ctx.fill();
+      ctx.closePath();
     }
 
-    function startGame() {
-      score = 0;
-      scoreEl.textContent = "Pontos: 0";
-      gameArea.innerHTML = "";
+    function update() {
+      if (isPaused) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      clearInterval(gameInterval);
-      gameInterval = setInterval(createCircle, 800);
+      x += dx;
+      y += dy;
 
-      setTimeout(() => {
-        clearInterval(gameInterval);
-        alert("Fim de jogo! Você fez " + score + " ponto(s).");
-      }, 30000);
+      if (x + radius > canvas.width || x - radius < 0) {
+        dx = -dx;
+        earnMoney();
+        bounce();
+      }
+
+      if (y + radius > canvas.height || y - radius < 0) {
+        dy = -dy;
+        earnMoney();
+        bounce();
+      }
+
+      drawCircle();
     }
 
-    startBtn.addEventListener("click", startGame);
+    function earnMoney() {
+      money += 10;
+      document.getElementById("money").innerText = money;
+    }
+
+    function bounce() {
+      bounceCount++;
+      playSound();
+      if (bounceCount % 20 === 0) {
+        level++;
+        document.getElementById("level").innerText = level;
+        dx *= 1.1;
+        dy *= 1.1;
+      }
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      event.target.innerText = isPaused ? "▶️ Continuar" : "⏸ Pausar";
+    }
+
+    function buySkin() {
+      if (money >= 100) {
+        money -= 100;
+        document.getElementById("money").innerText = money;
+        skinColor = getRandomColor();
+        document.getElementById("skinName").innerText = "Custom";
+      } else {
+        alert("Dinheiro insuficiente!");
+      }
+    }
+
+    function upgradeSpeed() {
+      if (money >= 150) {
+        money -= 150;
+        dx *= 1.2;
+        dy *= 1.2;
+        speed *= 1.2;
+        document.getElementById("money").innerText = money;
+        alert("Velocidade aumentada!");
+      } else {
+        alert("Dinheiro insuficiente!");
+      }
+    }
+
+    function getRandomColor() {
+      const cores = ["red", "blue", "green", "yellow", "orange", "purple", "cyan", "white"];
+      return cores[Math.floor(Math.random() * cores.length)];
+    }
+
+    setInterval(update, 16);
   </script>
 </body>
-                       </html>
+</html>
