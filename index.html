@@ -1,180 +1,195 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Jogo do Círculo 2.0</title>
+  <meta charset="UTF-8">
+  <title>Jogo do Círculo 🚀</title>
   <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background-color: #222;
-      color: #fff;
-      overflow: hidden;
-    }
-
-    canvas {
-      background: #111;
-      display: block;
-      margin: 0 auto;
-    }
-
-    #ui {
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    canvas { background: #111; display: block; margin: auto; border: 3px solid #00f; }
+    #ui { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; }
+    .menu, .sub-menu {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #222;
+      border: 2px solid #0f0;
+      padding: 20px;
+      color: white;
+      display: none;
+      font-family: sans-serif;
       z-index: 2;
     }
-
-    button {
-      background: #444;
-      color: white;
+    .menu button, .sub-menu button {
+      margin: 10px;
+      padding: 10px;
+      background: #0f0;
       border: none;
-      padding: 8px 12px;
-      margin: 4px;
       cursor: pointer;
-      border-radius: 5px;
+      font-weight: bold;
     }
-
-    .menu {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #333;
-      padding: 20px;
-      border-radius: 10px;
-      display: none;
-      flex-direction: column;
-      z-index: 3;
-    }
-
-    .menu h2 {
-      margin-top: 0;
-    }
-
-    .hidden {
-      display: none !important;
-    }
+    #pauseBtn { position: absolute; top: 10px; right: 10px; z-index: 1; padding: 5px 10px; }
   </style>
 </head>
 <body>
-  <canvas id="game" width="600" height="400"></canvas>
+<canvas id="game" width="800" height="600"></canvas>
+<div id="ui">
+  <div>Moedas: <span id="coins">0</span></div>
+</div>
+<button id="pauseBtn">⏸️</button>
 
-  <div id="ui">
-    <button onclick="togglePause()">⏸️ Pausar</button>
-    <button onclick="openMenu('shop')">🛒 Loja</button>
-    <button onclick="openMenu('settings')">⚙️ Configurações</button>
-    <div id="coins">💰 Moedas: 0</div>
-  </div>
+<div class="menu" id="mainMenu">
+  <h2>Jogo do Círculo</h2>
+  <button onclick="startGame()">Iniciar Jogo</button>
+  <button onclick="openMenu('shopMenu')">Loja</button>
+  <button onclick="openMenu('configMenu')">Configurações</button>
+  <button onclick="openMenu('achievementsMenu')">Conquistas</button>
+</div>
 
-  <div id="shop" class="menu">
-    <h2>Loja</h2>
-    <p>Melhorar Velocidade - <span id="speedCost">25</span> moedas</p>
-    <button onclick="upgradeSpeed()">Comprar</button>
-    <p id="upgradeStatus"></p>
-    <button onclick="closeMenus()">Fechar</button>
-  </div>
+<div class="sub-menu" id="pauseMenu">
+  <h3>Pausado</h3>
+  <button onclick="resumeGame()">Continuar</button>
+  <button onclick="saveGame()">Salvar</button>
+  <button onclick="openMenu('mainMenu')">Menu Principal</button>
+</div>
 
-  <div id="settings" class="menu">
-    <h2>Configurações</h2>
-    <p>(Em breve novas opções!)</p>
-    <button onclick="closeMenus()">Fechar</button>
-  </div>
+<div class="sub-menu" id="shopMenu">
+  <h3>Loja</h3>
+  <button onclick="buySpeed()">Upgrade Velocidade (custa <span id='speedCost'>25</span>)</button>
+  <button onclick="openMenu('mainMenu')">Voltar</button>
+</div>
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+<div class="sub-menu" id="configMenu">
+  <h3>Configurações</h3>
+  <label>Volume: <input type="range" id="volume" min="0" max="1" step="0.1"></label>
+  <button onclick="openMenu('mainMenu')">Voltar</button>
+</div>
 
-    let x = canvas.width / 2;
-    let y = canvas.height / 2;
-    let radius = 15;
-    let dx = 2;
-    let dy = 2;
-    let coins = parseInt(localStorage.getItem("coins")) || 0;
-    let speedLevel = parseInt(localStorage.getItem("speedLevel")) || 1;
-    let paused = false;
-    let speedCost = 25;
+<div class="sub-menu" id="achievementsMenu">
+  <h3>Conquistas</h3>
+  <ul id="achievementsList"></ul>
+  <button onclick="openMenu('mainMenu')">Voltar</button>
+</div>
 
-    function drawBall() {
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = "#00ffcc";
-      ctx.fill();
-      ctx.closePath();
-    }
+<audio id="bgMusic" src="https://cdn.pixabay.com/audio/2022/03/23/audio_166c14179f.mp3" loop autoplay></audio>
 
-    function draw() {
-      if (paused) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawBall();
+<script>
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const coinSpan = document.getElementById("coins");
+  const music = document.getElementById("bgMusic");
 
-      x += dx;
-      y += dy;
+  let player = { x: 100, y: 100, r: 20, speed: 2, color: "#0ff" };
+  let coins = 0;
+  let keys = {};
+  let paused = false;
+  let speedLevel = 0;
+  let speedCosts = [25, 50, 100, 150];
+  let achievements = [];
+  let showMenus = (id) => document.querySelectorAll(".menu, .sub-menu").forEach(m => m.style.display = m.id === id ? "block" : "none");
 
-      if (x + radius > canvas.width || x - radius < 0) {
-        dx = -dx;
-        addCoins(1);
+  function drawPlayer() {
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+    ctx.fillStyle = player.color;
+    ctx.fill();
+  }
+
+  function update() {
+    if (paused) return;
+    if (keys["ArrowUp"]) player.y -= player.speed;
+    if (keys["ArrowDown"]) player.y += player.speed;
+    if (keys["ArrowLeft"]) player.x -= player.speed;
+    if (keys["ArrowRight"]) player.x += player.speed;
+
+    player.x = Math.max(player.r, Math.min(canvas.width - player.r, player.x));
+    player.y = Math.max(player.r, Math.min(canvas.height - player.r, player.y));
+
+    coins += 0.05;
+    coinSpan.textContent = Math.floor(coins);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawPlayer();
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function startGame() {
+    showMenus("");
+    loop();
+  }
+
+  function resumeGame() {
+    paused = false;
+    showMenus("");
+  }
+
+  function openMenu(id) {
+    paused = true;
+    showMenus(id);
+  }
+
+  function buySpeed() {
+    if (speedLevel >= speedCosts.length) return;
+    const cost = speedCosts[speedLevel];
+    if (coins >= cost) {
+      coins -= cost;
+      player.speed += 1;
+      speedLevel++;
+      document.getElementById("speedCost").textContent = speedCosts[speedLevel] || "MAX";
+
+      if (speedLevel === 4) {
+        alert("🏆 Conquista: Velocidade Máxima!");
+        achievements.push("Velocidade Máxima");
+        coins += 500;
+        updateAchievements();
       }
-      if (y + radius > canvas.height || y - radius < 0) {
-        dy = -dy;
-        addCoins(1);
-      }
-
-      requestAnimationFrame(draw);
     }
+  }
 
-    function addCoins(amount) {
-      coins += amount;
-      updateUI();
-      saveData();
+  function updateAchievements() {
+    const list = document.getElementById("achievementsList");
+    list.innerHTML = "";
+    achievements.forEach(a => {
+      const li = document.createElement("li");
+      li.textContent = a;
+      list.appendChild(li);
+    });
+  }
+
+  function saveGame() {
+    localStorage.setItem("circleGameSave", JSON.stringify({
+      coins, player, speedLevel, achievements
+    }));
+    alert("Progresso salvo!");
+  }
+
+  function loadGame() {
+    const data = localStorage.getItem("circleGameSave");
+    if (data) {
+      const save = JSON.parse(data);
+      coins = save.coins;
+      player = save.player;
+      speedLevel = save.speedLevel;
+      achievements = save.achievements || [];
+      updateAchievements();
+      document.getElementById("speedCost").textContent = speedCosts[speedLevel] || "MAX";
     }
+  }
 
-    function updateUI() {
-      document.getElementById("coins").innerText = `💰 Moedas: ${coins}`;
-      document.getElementById("speedCost").innerText = speedCost;
-    }
+  // Controles
+  document.addEventListener("keydown", e => keys[e.key] = true);
+  document.addEventListener("keyup", e => keys[e.key] = false);
+  document.getElementById("pauseBtn").onclick = () => openMenu("pauseMenu");
+  document.getElementById("volume").oninput = (e) => music.volume = e.target.value;
 
-    function togglePause() {
-      paused = !paused;
-      if (!paused) draw();
-    }
-
-    function openMenu(menuId) {
-      closeMenus();
-      document.getElementById(menuId).style.display = "flex";
-    }
-
-    function closeMenus() {
-      document.querySelectorAll(".menu").forEach(el => el.style.display = "none");
-    }
-
-    function upgradeSpeed() {
-      if (coins >= speedCost && speedLevel < 4) {
-        coins -= speedCost;
-        speedLevel++;
-        speedCost *= 2;
-        dx *= 1.2;
-        dy *= 1.2;
-        updateUI();
-        saveData();
-        if (speedLevel === 4) {
-          coins += 500;
-          document.getElementById("upgradeStatus").innerText = "🏆 Conquista: Velocidade Máxima! +500 moedas!";
-        }
-      } else {
-        document.getElementById("upgradeStatus").innerText = "Moedas insuficientes ou velocidade máxima atingida.";
-      }
-    }
-
-    function saveData() {
-      localStorage.setItem("coins", coins);
-      localStorage.setItem("speedLevel", speedLevel);
-    }
-
-    window.onload = () => {
-      updateUI();
-      draw();
-    };
-  </script>
+  loadGame();
+  openMenu("mainMenu");
+</script>
 </body>
 </html>
